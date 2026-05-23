@@ -1,6 +1,10 @@
 # Tutu Backend
 
-Member C 的本地后端 MVP。当前版本先固定接口格式，返回 mock 数据，方便 Member B 先联调 APP 到云端的请求链路。
+Member C 的后端 MVP。接口对 APP 保持稳定，内部链路为：
+
+```text
+audio -> Qwen3-ASR-Flash -> Qwen3.6-Plus -> Qwen3-TTS-Flash
+```
 
 ## 本地启动
 
@@ -11,6 +15,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+编辑 `.env`，填入百炼/DashScope API Key：
+
+```env
+DASHSCOPE_API_KEY=你的百炼APIKey
+PUBLIC_BASE_URL=http://47.86.176.64
 ```
 
 健康检查：
@@ -46,11 +57,13 @@ Content-Type: multipart/form-data
 {
   "user_text": "用户语音识别出的文字",
   "reply_text": "AI 回复文字",
-  "audio_url": null,
+  "audio_url": "https://dashscope-result-.../xxx.wav",
   "voice": "female",
-  "mode": "mock"
+  "mode": "qwen"
 }
 ```
+
+`audio_url` 是 DashScope 返回的临时语音文件地址，通常有有效期限制，APP 应尽快下载或播放。
 
 ## 本地测试命令
 
@@ -65,10 +78,15 @@ curl -X POST http://127.0.0.1:8000/api/chat \
   -F 'history=[]'
 ```
 
-## 下一步
+## 服务器更新
 
-等 Member B 确认接口能调通后，再把 `main.py` 中的 mock 逻辑替换为：
+服务器已经部署后，更新代码：
 
-```text
-audio -> Whisper ASR -> GPT 回复 -> TTS 生成语音 -> 返回文本和音频地址
+```bash
+cd /root/Tutu
+git pull origin main
+cd Backend
+source .venv/bin/activate
+pip install -r requirements.txt
+systemctl restart tutu-backend
 ```
