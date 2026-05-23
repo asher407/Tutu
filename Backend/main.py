@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import mimetypes
 import os
 from typing import Any
 
@@ -101,8 +102,15 @@ def get_dashscope_client() -> OpenAI:
     return OpenAI(api_key=DASHSCOPE_API_KEY, base_url=DASHSCOPE_BASE_URL)
 
 
-def audio_to_data_url(audio_bytes: bytes, content_type: str | None) -> str:
-    media_type = content_type or "audio/wav"
+def audio_to_data_url(
+    audio_bytes: bytes,
+    content_type: str | None,
+    filename: str | None,
+) -> str:
+    guessed_type = mimetypes.guess_type(filename or "")[0]
+    media_type = guessed_type or content_type or "audio/wav"
+    if media_type == "application/octet-stream":
+        media_type = guessed_type or "audio/wav"
     encoded = base64.b64encode(audio_bytes).decode("ascii")
     return f"data:{media_type};base64,{encoded}"
 
@@ -120,8 +128,12 @@ def history_to_messages(history: list[dict[str, Any]]) -> list[dict[str, str]]:
     return messages
 
 
-def transcribe_audio(audio_bytes: bytes, content_type: str | None) -> str:
-    data_url = audio_to_data_url(audio_bytes, content_type)
+def transcribe_audio(
+    audio_bytes: bytes,
+    content_type: str | None,
+    filename: str | None,
+) -> str:
+    data_url = audio_to_data_url(audio_bytes, content_type, filename)
     dashscope_client = get_dashscope_client()
 
     try:
@@ -225,7 +237,7 @@ async def chat(
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="audio file is empty")
 
-    user_text = transcribe_audio(audio_bytes, audio.content_type)
+    user_text = transcribe_audio(audio_bytes, audio.content_type, audio.filename)
     reply_text = generate_reply(user_text, parsed_history)
     audio_url = await synthesize_speech(reply_text, voice)
 
